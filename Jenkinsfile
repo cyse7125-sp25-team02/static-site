@@ -32,7 +32,7 @@ pipeline {
     
     post {
         always {
-            node {
+            node('built-in') {
                 sh 'docker logout'
             }
         }
