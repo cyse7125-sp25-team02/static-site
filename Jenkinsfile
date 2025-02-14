@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('ddockerhub-credentials')
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKER_IMAGE = credentials('docker-image')
         DOCKER_TAG = "${BUILD_NUMBER}"
     }
@@ -32,7 +32,9 @@ pipeline {
     
     post {
         always {
-            sh 'docker logout'
+            node {
+                sh 'docker logout'
+            }
         }
     }
 }
