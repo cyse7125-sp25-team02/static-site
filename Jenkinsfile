@@ -1,72 +1,38 @@
 pipeline {
     agent any
-
+    
     environment {
-        DOCKER_REGISTRY = 'karanthakkar09'
-        DOCKER_IMAGE = 'jkops'
-        DOCKER_CREDENTIALS = credentials('docker-creds')
-        VERSION = '1.0.0'
+        DOCKERHUB_CREDENTIALS = credentials('ddockerhub-credentials')
+        DOCKER_IMAGE = credentials('docker-image')
+        DOCKER_TAG = "${BUILD_NUMBER}"
     }
-
-    triggers {
-        githubPullRequests {
-            cron('H/5 * * * *')
-            triggerPhrase('please build')
-            useGitHubHooks()
-            permitAll()
-        }
-    }
-
+    
     stages {
-        stage('Checkout') {
+        stage('Setup BuildX') {
             steps {
-                githubPRStatus(
-                    context: 'continuous-integration/jenkins/pr-merge',
-                    message: 'Starting build',
-                    state: 'PENDING'
-                )
-                checkout scm
+                sh '''
+                    docker buildx create --use
+                    docker buildx inspect --bootstrap
+                '''
             }
         }
-        stage('Build Docker Image') {
+        
+        stage('Login and Build') {
             steps {
-                script {
-                    try {
-                        // Set up buildx builder for multi-platform support
-                        sh '''
-                        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                        docker buildx create --name multiarch-builder --driver docker-container --use
-                        docker buildx inspect --bootstrap
-                    '''
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
 
-                        // Build and push multi-platform image
-                        sh """
-                        docker buildx build \
-                            --platform linux/amd64,linux/arm64 \
-                            --tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${VERSION} \
-                            --push \
-                            .
-                        """
-                        githubPRStatus(
-                            context: 'continuous-integration/jenkins/pr-merge',
-                            message: 'Build successful', state: 'SUCCESS'
-                            )
-                    } catch (Exception e) {
-                        githubPRStatus(
-                            context: 'continuous-integration/jenkins/pr-merge',
-                            message: 'Build failed',
-                            state: 'FAILURE'
-                            )
-                        throw e
-                    }
-                }
+                sh """
+                    docker buildx build --platform linux/amd64,linux/arm64 \
+                    -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
+                    --push .
+                """
             }
         }
     }
-
+    
     post {
         always {
-            cleanWs()
+            sh 'docker logout'
         }
     }
 }
