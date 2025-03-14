@@ -25,6 +25,9 @@ pipeline {
         stage('Push new tag version') {
             steps {
                 script {
+                    sh 'git config --global user.email "jenkins@jkops.com"'
+                    sh 'git config --global user.name "Jenkins"'
+
                     if (env.NEXT_VERSION) {
                         sh "git tag -a ${env.NEXT_VERSION} -m 'Release version ${env.NEXT_VERSION}'"
                         sh "git push origin ${env.NEXT_VERSION}"
