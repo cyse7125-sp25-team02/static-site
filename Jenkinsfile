@@ -4,6 +4,7 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE = "karanthakkar09/static-site"
+        CURRENT_VERSION = currentVersion()
         NEXT_VERSION = nextVersion()
     }
     
