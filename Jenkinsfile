@@ -7,32 +7,25 @@ pipeline {
     }
     
     stages {
-        stage('Clean Workspace') {
+        stage('Prepare Workspace and Determine Next Version') {
             steps {
-                cleanWs()
-            }
-        }
-
-        stage('Determine next tag version') {
-            steps {
-                git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
                 script {
+                    cleanWs()
+                    sh 'git config --global user.email "jenkins@jkops.com"'
+                    sh 'git config --global user.name "Jenkins"'
+                    
+                    git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
                     env.NEXT_VERSION = nextVersion()
                 }
             }
         }
 
-        stage('Push new tag version') {
+        stage('Push New Tag Version') {
             steps {
                 script {
-                    sh 'git config --global user.email "jenkins@jkops.com"'
-                    sh 'git config --global user.name "Jenkins"'
-
-                    if (env.NEXT_VERSION) {
-                        sh "git tag -a ${env.NEXT_VERSION} -m 'Release version ${env.NEXT_VERSION}'"
+                    sh "git tag -a ${env.NEXT_VERSION} -m 'Release version ${env.NEXT_VERSION}'"
+                    withCredentials([gitUsernamePassword(credentialsId: 'github-credentials', gitToolName: 'Default')]) {
                         sh "git push origin ${env.NEXT_VERSION}"
-                    } else {
-                        error("NEXT_VERSION is not defined. Cannot create a tag.")
                     }
                 }
             }
