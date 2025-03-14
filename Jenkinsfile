@@ -2,55 +2,76 @@ pipeline {
     agent any
     
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_IMAGE = "karanthakkar09/static-site"
+        GITHUB_CREDENTIALS = credentials('github-credentials')
     }
     
     stages {
-        stage('Prepare Workspace and Determine Next Version') {
+        stage('Prepare Workspace') {
             steps {
-                script {
-                    cleanWs()
-                    sh 'git config --global user.email "jenkins@jkops.com"'
-                    sh 'git config --global user.name "Jenkins"'
-                    
-                    git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
-                    env.NEXT_VERSION = nextVersion()
-                }
-            }
-        }
-
-        stage('Push New Tag Version') {
-            steps {
-                script {
-                    sh "git tag -a ${env.NEXT_VERSION} -m 'Release version ${env.NEXT_VERSION}'"
-                    withCredentials([gitUsernamePassword(credentialsId: 'github-credentials', gitToolName: 'Default')]) {
-                        sh "git push origin ${env.NEXT_VERSION}"
-                    }
-                }
-            }
-        }
-
-        stage('Setup BuildX') {
-            steps {
-                sh '''
-                    docker buildx create --use
-                    docker buildx inspect --bootstrap
-                '''
+                cleanWs()
+                sh 'git config --global user.email "jenkins@jkops.com"'
+                sh 'git config --global user.name "Jenkins"'
             }
         }
         
-        stage('Login and Build') {
+        stage('Checkout') {
             steps {
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-
                 script {
-                    sh """
-                        docker buildx build --platform linux/amd64,linux/arm64 \
-                        -t ${DOCKER_IMAGE}:latest \
-                        -t ${DOCKER_IMAGE}:${env.NEXT_VERSION} \
-                        --push .
-                    """
+                    // Checkout the PR branch
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "${env.CHANGE_BRANCH ?: env.GIT_BRANCH}"]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'PruneStaleBranch']
+                        ],
+                        userRemoteConfigs: [[
+                            credentialsId: 'github-credentials',
+                            url: 'https://github.com/cyse7125-sp25-team02/static-site',
+                            refspec: '+refs/pull/*:refs/remotes/origin/pr/* +refs/heads/*:refs/remotes/origin/*'
+                        ]]
+                    ])
+                }
+            }
+        }
+        
+        stage('Verify Conventional Commits') {
+            steps {
+                script {
+                    // Get the base branch (usually main/master)
+                    def baseBranch = env.CHANGE_TARGET ?: 'master'
+                    
+                    // Get all commits in this PR
+                    sh "git fetch origin ${baseBranch}:refs/remotes/origin/${baseBranch}"
+                    
+                    // Get all commit messages since branching from base branch
+                    def commitMessages = sh(
+                        script: "git log origin/${baseBranch}..HEAD --pretty=format:'%s'",
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "Checking commit messages for conventional commit format"
+                    
+                    // Define the conventional commit pattern
+                    // Format: type(scope): description
+                    def conventionalCommitPattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?: .+$/
+                    
+                    def invalidCommits = []
+                    commitMessages.split('\n').each { commit ->
+                        if (commit && !commit.matches(conventionalCommitPattern)) {
+                            invalidCommits.add(commit)
+                        }
+                    }
+                    
+                    if (invalidCommits.size() > 0) {
+                        echo "The following commits do not follow the conventional commit format:"
+                        invalidCommits.each { commit ->
+                            echo "- ${commit}"
+                        }
+                        error "PR contains commits that do not follow conventional commit format. Please fix and try again."
+                    } else {
+                        echo "All commits follow the conventional commit format!"
+                    }
                 }
             }
         }
@@ -58,12 +79,13 @@ pipeline {
     
     post {
         always {
-            sh 'docker logout'
-            sh 'docker builder prune -f'
             cleanWs()
         }
         success {
-            echo "Successfully built and published Docker image ${DOCKER_IMAGE}:${env.NEXT_VERSION}"
+            echo "All commits follow conventional commit format"
+        }
+        failure {
+            echo "Some commits do not follow conventional commit format"
         }
     }
 }
