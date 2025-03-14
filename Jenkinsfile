@@ -4,10 +4,29 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE = "karanthakkar09/static-site"
-        NEXT_VERSION = nextVersion()
     }
     
     stages {
+        stage('Fetch Tags') {
+            steps {
+                sh 'git fetch --tags'
+                sh 'git tag -l'
+            }
+        }
+        
+        stage('Determine Version') {
+            steps {
+                script {
+                    env.NEXT_VERSION = nextVersion()
+                    echo "Building version: ${env.NEXT_VERSION}"
+                    
+                    if (env.NEXT_VERSION == null || env.NEXT_VERSION.trim() == '') {
+                        error "Failed to determine next version using conventional commits"
+                    }
+                }
+            }
+        }
+        
         stage('Setup BuildX') {
             steps {
                 sh '''
@@ -21,26 +40,24 @@ pipeline {
             steps {
                 sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
 
-                sh """
-                    docker buildx build --platform linux/amd64,linux/arm64 \
-                    -t ${DOCKER_IMAGE}:latest \
-                    --push .
-                """
-
-                sh """
-                    docker buildx build --platform linux/amd64,linux/arm64 \
-                    -t ${DOCKER_IMAGE}:${NEXT_VERSION} \
-                    --push .
-                """
+                script {
+                    sh """
+                        docker buildx build --platform linux/amd64,linux/arm64 \
+                        -t ${DOCKER_IMAGE}:latest \
+                        -t ${DOCKER_IMAGE}:${NEXT_VERSION} \
+                        --push .
+                    """
+                }
             }
         }
     }
     
     post {
         always {
-            node('built-in') {
-                sh 'docker logout'
-            }
+            sh 'docker logout'
+        }
+        success {
+            echo "Successfully built and published Docker image ${DOCKER_IMAGE}:${NEXT_VERSION}"
         }
     }
 }
