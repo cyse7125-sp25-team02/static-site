@@ -7,17 +7,24 @@ pipeline {
     }
     
     stages {
-        stage('Clean Workspace') {
-            steps {
-                cleanWs()
-            }
-        }
-
-        stage('Determine next version') {
+        stage('Determine next tag version') {
             steps {
                 git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
                 script {
                     env.NEXT_VERSION = nextVersion()
+                }
+            }
+        }
+
+        stage('Push new tag version') {
+            steps {
+                script {
+                    if (env.NEXT_VERSION) {
+                        sh "git tag -a ${env.NEXT_VERSION} -m 'Release version ${env.NEXT_VERSION}'"
+                        sh "git push origin ${env.NEXT_VERSION}"
+                    } else {
+                        error("NEXT_VERSION is not defined. Cannot create a tag.")
+                    }
                 }
             }
         }
@@ -39,7 +46,7 @@ pipeline {
                     sh """
                         docker buildx build --platform linux/amd64,linux/arm64 \
                         -t ${DOCKER_IMAGE}:latest \
-                        -t ${DOCKER_IMAGE}:${NEXT_VERSION} \
+                        -t ${DOCKER_IMAGE}:${env.NEXT_VERSION} \
                         --push .
                     """
                 }
@@ -52,7 +59,7 @@ pipeline {
             sh 'docker logout'
         }
         success {
-            echo "Successfully built and published Docker image ${DOCKER_IMAGE}:${NEXT_VERSION}"
+            echo "Successfully built and published Docker image ${DOCKER_IMAGE}:${env.NEXT_VERSION}"
         }
     }
 }
