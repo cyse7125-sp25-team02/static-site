@@ -2,9 +2,9 @@ pipeline {
     agent any
     
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
-        DOCKER_IMAGE = credentials('docker-image')
-        DOCKER_TAG = "3.0.0"
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
+        DOCKER_IMAGE = "karanthakkar09/static-site"
+        NEXT_VERSION = nextVersion()
     }
     
     stages {
@@ -29,7 +29,7 @@ pipeline {
 
                 sh """
                     docker buildx build --platform linux/amd64,linux/arm64 \
-                    -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
+                    -t ${DOCKER_IMAGE}:${NEXT_VERSION} \
                     --push .
                 """
             }
