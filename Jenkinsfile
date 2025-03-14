@@ -6,6 +6,10 @@ pipeline {
         DOCKER_IMAGE = "karanthakkar09/static-site"
     }
     
+    options {
+        cleanWs()
+    }
+    
     stages {
         stage('Determine next tag version') {
             steps {
@@ -57,6 +61,8 @@ pipeline {
     post {
         always {
             sh 'docker logout'
+            sh 'docker builder prune -f'
+            cleanWs()
         }
         success {
             echo "Successfully built and published Docker image ${DOCKER_IMAGE}:${env.NEXT_VERSION}"
