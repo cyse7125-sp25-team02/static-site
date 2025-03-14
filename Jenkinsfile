@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Determine next version') {
             steps {
-                git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site'
+                git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
                 script {
                     env.NEXT_VERSION = nextVersion()
                 }
