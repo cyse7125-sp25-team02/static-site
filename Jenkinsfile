@@ -4,11 +4,16 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE = "karanthakkar09/static-site"
-        CURRENT_VERSION = currentVersion()
-        NEXT_VERSION = nextVersion()
     }
     
     stages {
+        stage('Determine next version') {
+            steps {
+                git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site'
+                env.NEXT_VERSION = nextVersion()
+            }
+        }
+
         stage('Setup BuildX') {
             steps {
                 sh '''
