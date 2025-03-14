@@ -7,6 +7,12 @@ pipeline {
     }
     
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Determine next version') {
             steps {
                 git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
