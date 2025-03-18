@@ -11,6 +11,7 @@ pipeline {
             steps {
                 script {
                     cleanWs()
+                    sh 'exit 1' // Fail the build
                     sh 'git config --global user.email "jenkins@jkops.com"'
                     sh 'git config --global user.name "Jenkins"'
                     
