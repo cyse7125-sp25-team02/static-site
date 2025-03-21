@@ -10,6 +10,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                cleanWs()
                 sh 'git config --global user.email "jenkins@jkops.com"'
                 sh 'git config --global user.name "Jenkins"'
                 git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
@@ -19,6 +20,8 @@ pipeline {
         stage('Semantic Git Release') {
             steps {
                 script {
+                    sh 'npm install'
+                    
                     def output
                     withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_TOKEN')]) {
                         output = sh(script: "npx semantic-release", returnStdout: true).trim()
@@ -64,6 +67,7 @@ pipeline {
                     docker logout
                 """
             }
+            cleanWs()
         }
         success {
             echo "Pipeline completed successfully! Docker image ${DOCKERHUB_USERNAME}/${DOCKER_IMAGE_NAME}:${env.APP_VERSION} pushed to Docker Hub."
