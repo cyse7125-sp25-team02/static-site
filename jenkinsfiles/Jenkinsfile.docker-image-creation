@@ -21,11 +21,17 @@ pipeline {
             steps {
                 script {
                     sh 'npm install'
-                    
-                    def output
-                    withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_TOKEN')]) {
-                        output = sh(script: "npx semantic-release", returnStdout: true).trim()
-                        env.APP_VERSION = output.split('\n').find { it.contains("The next release version is") }?.split(' ').last()
+
+                    def output = sh(script: "npx semantic-release", returnStdout: true).trim()
+
+                    echo "semantic-release output:\n${output}"
+
+                    def versionLine = output.split('\n').find { it.contains("The next release version is") }
+                    if (versionLine) {
+                        env.APP_VERSION = versionLine.split(' ').last()
+                        echo "New version set: ${env.APP_VERSION}"
+                    } else {
+                        echo "No new release created. Check your commit history or configuration."
                     }
                 }
             }
