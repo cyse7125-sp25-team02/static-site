@@ -12,7 +12,6 @@ pipeline {
             steps {
                 sh 'git config --global user.email "jenkins@jkops.com"'
                 sh 'git config --global user.name "Jenkins"'
-                
                 git branch: 'master', url: 'https://github.com/cyse7125-sp25-team02/static-site', credentialsId: 'github-credentials'
             }
         }
@@ -22,7 +21,7 @@ pipeline {
                 script {
                     def output
                     withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_TOKEN')]) {
-                        output = sh(script: "npx semantic-release --repository-url https://${GITHUB_TOKEN}@github.com/cyse7125-sp25-team02/static-site.git", returnStdout: true).trim()
+                        output = sh(script: "npx semantic-release", returnStdout: true).trim()
                         env.APP_VERSION = output.split('\n').find { it.contains("The next release version is") }?.split(' ').last()
                     }
                 }
@@ -60,7 +59,7 @@ pipeline {
         always {
             script {
                 sh """
-                    docker buildx rm mybuilder || true
+                    docker buildx rm mybuilder
                     docker system prune -f
                     docker logout
                 """
