@@ -20,13 +20,11 @@ pipeline {
         stage('Semantic Git Release') {
             steps {
                 script {
-                    sh "npm install"
-
+                    def output
                     withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_TOKEN')]) {
-                        def output = sh(script: "npx semantic-release", returnStdout: true).trim()
+                        output = sh(script: "npx semantic-release --repository-url https://${GITHUB_TOKEN}@github.com/cyse7125-sp25-team02/static-site.git", returnStdout: true).trim()
+                        env.APP_VERSION = output.split('\n').find { it.contains("The next release version is") }?.split(' ').last()
                     }
-
-                    env.APP_VERSION = output.split('\n').find { it.contains("The next release version is") }?.split(' ').last()
                 }
             }
         }
