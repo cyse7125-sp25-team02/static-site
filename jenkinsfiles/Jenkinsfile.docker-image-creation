@@ -25,9 +25,13 @@ pipeline {
                         def output = sh(script: "npx semantic-release", returnStdout: true).trim()
                         echo "semantic-release output:\n${output}"
 
-                        def versionLine = output.split('\n').find { it.contains("The next release version is") }
-                        env.APP_VERSION = versionLine.split(' ').last()
-                        echo "New version set: ${env.APP_VERSION}"
+                        def versionLine = output.split('\n').find { it.toLowerCase().contains("the next release version is") }
+                        if (versionLine) {
+                            env.APP_VERSION = versionLine.split(' ').last()
+                            echo "New version set: ${env.APP_VERSION}"
+                        } else {
+                            error "Failed to find the release version in the output."
+                        }
                     }
                 }
             }
@@ -64,12 +68,12 @@ pipeline {
         always {
             script {
                 sh """
-                    docker buildx rm mybuilder
+                    docker buildx rm mybuilder || true
                     docker system prune -f
                     docker logout
                 """
+                cleanWs()
             }
-            cleanWs()
         }
         success {
             echo "Pipeline completed successfully! Docker image ${DOCKERHUB_USERNAME}/${DOCKER_IMAGE_NAME}:${env.APP_VERSION} pushed to Docker Hub."
